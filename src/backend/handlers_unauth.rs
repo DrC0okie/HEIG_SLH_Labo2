@@ -27,7 +27,7 @@ pub async fn verify(Path(token): Path<String>) -> Redirect {
     info!("Verify account");
 
     // TODO : Flag user's account as verified (with the given token)
-    let verification: bool;
+    let verification: bool = false;
 
     match verification {
         true => Redirect::to("/?verify=ok"),
@@ -66,8 +66,8 @@ pub async fn home(
             let expiration = OffsetDateTime::now_utc() + Duration::minutes(10);
 
             // Add token+exp to session
-            session.insert("csrf", token.clone()).or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
-            session.insert("csrf_expiration", expiration.unix_timestamp()).or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+            session.insert("csrf", token.clone()).await.or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+            session.insert("csrf_expiration", expiration.unix_timestamp()).await.or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
             Some(json!({"email": user.email, "token": token}))
         },

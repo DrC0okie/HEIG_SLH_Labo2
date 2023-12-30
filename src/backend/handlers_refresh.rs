@@ -8,7 +8,7 @@ pub async fn get_access(user: RefreshUser, jar: CookieJar) -> axum::response::Re
     // User's refresh token is already checked through the extractor RefreshUser
     // You can trust the email given in the parameter "user"
 
-    let jwt: String; // TODO : Create access JWT for email in user
+    let jwt: String = Default::default(); // TODO : Create access JWT for email in user
 
     // Add JWT to jar
     let cookie = Cookie::build(("access", jwt))

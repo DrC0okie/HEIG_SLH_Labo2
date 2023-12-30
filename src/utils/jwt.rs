@@ -1,38 +1,77 @@
-use anyhow::Result;
-use jsonwebtoken::{encode, Header, EncodingKey, Algorithm};
-use serde::{Serialize};
-use chrono::{Utc, Duration};
+use std::collections::HashSet;
+use anyhow::{anyhow, Result};
+use jsonwebtoken::{encode, Header, EncodingKey, Validation, decode, DecodingKey};
+use serde::{Deserialize, Serialize};
+use std::env;
+use chrono::{Duration, Utc};
+use crate::consts::{ACCESS_EXPIRATION, REFRESH_EXPIRATION, JWT_ISSUER, ENV_KEY_NAME};
 
+/// Role of the JWT
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[derive(PartialEq)]
 pub enum Role {
     Access,
     Refresh,
 }
 
-#[derive(Serialize)]
+/// Claims struct for JWT
+#[derive(Debug, Serialize, Deserialize)]
 struct Claims {
-    sub: String,  // Subject
-    iat: i64,     // Issued At
-    exp: i64,     // Expiration
-    iss: String,  // Issuer
+    iss: String,
+    iat: i64,
+    exp: i64,
+    email: String,
+    role: Role,
 }
-
-fn create_jwt(user_id: &str, issuer: &str, rsa_pri_key: &[u8], validity: i64) -> Result<String, jsonwebtoken::errors::Error> {
+/// Create a JWT with the given email and role
+/// Return the JWT if its valid, otherwise return an error
+pub fn create_jwt(email: &str, role: Role) -> Result<String, jsonwebtoken::errors::Error> {
     let issued_at = Utc::now();
-    let expiration = issued_at + Duration::seconds(validity);
+    let expiration = issued_at + Duration::seconds(match role {
+        Role::Access => {ACCESS_EXPIRATION}
+        Role::Refresh => {REFRESH_EXPIRATION}
+    });
 
+    // Set the claims
     let claims = Claims {
-        sub: user_id.to_owned(),
+        iss: JWT_ISSUER.to_owned(),
         iat: issued_at.timestamp(),
         exp: expiration.timestamp(),
-        iss: issuer.to_owned(),
+        email: email.to_owned(),
+        role,
     };
 
-    encode(&Header::new(Algorithm::RS256), &claims, &EncodingKey::from_rsa_pem(rsa_pri_key)?)
+    // retrieve the secret key from the environment
+    let secret_key = match env::var(ENV_KEY_NAME) {
+        Ok(key) => key,
+        Err(_) => return Err(jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidKeyFormat)),
+    };
+
+    // Encode the JWT
+    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret_key.as_ref())).map_err(Into::into)
 }
 
 /// Verify the validity of a JWT accordingly to its role (access or refresh)
-/// Return the email contained in the JWT if its valid
-/// Return an error if the JWT is invalid
+/// Return the email contained in the JWT if its valid, otherwise return an error
 pub fn verify<T: Into<String>>(jwt: T, role: Role) -> Result<String> {
-    todo!()
+    let token = jwt.into();
+    let secret_key = env::var(ENV_KEY_NAME).expect("Key not found in .env file");
+
+    // Set validation parameters
+    let mut validation = Validation::default();
+    let mut issuer_set = HashSet::new();
+    issuer_set.insert(JWT_ISSUER.to_owned());
+    validation.iss = Some(issuer_set);
+
+    // Decode and validate the JWT
+    let token_data = decode::<Claims>(&token, &DecodingKey::from_secret(secret_key.as_ref()), &validation)
+        .map_err(|e| anyhow!("JWT Verification failed: {}", e))?;
+
+    if token_data.claims.role != role {
+        return Err(anyhow!("Token role mismatch"));
+    }
+
+    Ok(token_data.claims.email)
 }
+

@@ -22,7 +22,8 @@ uuid = { version = "1.6.1", features = ["v4"] }
 time = {version = "0.3.30"}
 serde_with = "3.4.0"
 serde_millis = "0.1.1"
-tower-sessions = "0.7.0"
+tower-sessions = "0.8.2"
 tower = "0.4.13"
 jsonwebtoken = "9.2.0"
 chrono = "0.4"
+dotenv = "0.15.0"

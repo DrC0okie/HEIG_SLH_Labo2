@@ -6,6 +6,7 @@ mod utils;
 mod email;
 mod consts;
 
+use std::env;
 use std::net::SocketAddr;
 use handlebars::Handlebars;
 use log::info;
@@ -22,6 +23,9 @@ static HBS: Lazy<Handlebars> = Lazy::new(|| {
 
 #[tokio::main]
 async fn main() {
+
+    dotenv::dotenv().ok();
+
     env_logger::builder()
         .filter_level(log::LevelFilter::Trace)
         .init();

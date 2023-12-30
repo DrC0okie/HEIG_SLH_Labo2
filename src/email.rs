@@ -1,7 +1,7 @@
+use crate::HTTP_PORT;
 use anyhow::Result;
 use log::{info, trace};
 use crate::database;
-use crate::HTTP_PORT;
 
 pub fn send_mail(to: &str, subject: &str, body: &str) -> Result<()> {
     info!("Sending an email");
