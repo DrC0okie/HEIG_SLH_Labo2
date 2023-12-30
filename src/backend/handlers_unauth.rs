@@ -14,9 +14,24 @@ use axum::extract::Path;
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use crate::database::email::Email;
+use crate::utils::input_validation as Input;
 
 pub async fn register(Json(user): Json<NewUser>) -> axum::response::Result<StatusCode> {
     info!("Register new user");
+
+    // Validate user input
+    match Input::validate_user(&user) {
+        Ok(_) => {},
+        Err(validation_error) => {
+            return Err((StatusCode::BAD_REQUEST, validation_error).into());
+        }
+    }
+
+    // Hash the password
+    // Create user record in the database
+    // Generate a verification token
+    // Send a confirmation email
+    // ...
 
     // TODO : Register a new user
     // TODO : Send confirmation email : send_mail(...).or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
@@ -42,8 +57,8 @@ pub async fn login(Json(user_login): Json<UserLogin>) -> axum::response::Result<
     // TODO : Login user
     // TODO : Generate refresh JWT
 
-    let jwt: String;
-    Ok(Json::from(Token { token: jwt }))
+    // let jwt: String;
+    // Ok(Json::from(Token { token: jwt }))
 }
 
 

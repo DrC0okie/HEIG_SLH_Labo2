@@ -6,7 +6,6 @@ mod utils;
 mod email;
 mod consts;
 
-use std::env;
 use std::net::SocketAddr;
 use handlebars::Handlebars;
 use log::info;
