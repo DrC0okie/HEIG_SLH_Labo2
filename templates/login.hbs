@@ -143,6 +143,7 @@
 
     function updatePasswordStrength(password) {
         let strength = zxcvbn(password);
+        let hint = strength.feedback.warning;
         let strengthValue = 20 + strength.score * 20;
 
         // Update progress bar
@@ -155,23 +156,23 @@
         let strengthText = $('#password-strength-text');
         switch(strength.score) {
             case 0:
-                strengthText.text('Password strength: Too weak');
+                strengthText.text('Password strength too weak. ' + hint);
                 progressBar.addClass('bg-danger');
                 break;
             case 1:
-                strengthText.text('Password strength: Weak');
+                strengthText.text('Password strength: Weak. ' + hint);
                 progressBar.addClass('bg-danger');
                 break;
             case 2:
-                strengthText.text('Password strength: Fair');
+                strengthText.text('Password strength: Fair. ' + hint);
                 progressBar.addClass('bg-warning');
                 break;
             case 3:
-                strengthText.text('Password strength: Good');
+                strengthText.text('Password strength: Good. ' + hint);
                 progressBar.addClass('bg-info');
                 break;
             case 4:
-                strengthText.text('Password strength: Strong');
+                strengthText.text('Password strength: Strong. ' + hint);
                 progressBar.addClass('bg-success');
                 break;
         }

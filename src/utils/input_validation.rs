@@ -73,23 +73,6 @@ pub fn get_password_strength(password: &str) -> u8 {
     zxcvbn(password, &[]).unwrap().score()
 }
 
-/// Provides a warning message about the password based on zxcvbn.
-///
-/// # Arguments
-/// * `password` - Password to evaluate.
-///
-/// # Returns
-/// * A warning string if provided by zxcvbn, or an empty string if none
-pub fn get_password_warning(password: &str) -> String {
-    let binding = zxcvbn(password, &[]).unwrap();
-    let feedback = binding.feedback();
-    if let Some(feedback) = feedback {
-        feedback.warning().map_or_else(|| String::new(), |warning| warning.to_string())
-    } else {
-        String::new()
-    }
-}
-
 /// Validates a NewUser object by checking email format, password match, length, and strength.
 ///
 /// # Arguments
@@ -104,15 +87,8 @@ pub fn validate_user(user: &NewUser) -> Result<(), String> {
     is_password_length_valid(&user.password, None)?;
 
     let password_strength = get_password_strength(&user.password);
-    let base_warning = "Please choose a stronger password.".to_owned();
     if password_strength < 3 {
-        let warning = get_password_warning(&user.password);
-        let warning_message = if warning.is_empty() {
-            base_warning
-        } else {
-            format!("Password is too weak: {}", warning)
-        };
-        return Err(warning_message);
+        return Err("Password is too weak.".to_owned());
     }
 
     Ok(())
