@@ -4,54 +4,116 @@ use lazy_static::lazy_static;
 use zxcvbn::zxcvbn;
 use crate::backend::models::NewUser;
 
-
+// Compile the email regex once and use it across function calls.
 lazy_static! {
     static ref EMAIL_REGEX: Regex = Regex::new(
         r"^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$"
     ).unwrap();
     }
 
-fn is_valid_email(email: &str) -> bool {
-    EMAIL_REGEX.is_match(email)
+/// Validates the format of an email address.
+///
+/// # Arguments
+/// * `email` - A string slice that holds the email address to validate.
+///
+/// # Returns
+/// * `Ok(())` if the email format is valid,
+/// * `Err(String)` with an error message if the format is invalid.
+pub fn is_valid_email(email: &str) -> Result<(), String> {
+    if EMAIL_REGEX.is_match(email) {
+        Ok(())
+    } else {
+        Err("Invalid email format.".to_string())
+    }
 }
 
-fn do_passwords_match(password1: &str, password2: &str) -> bool {
-    password1 == password2
+/// Checks if two provided passwords match.
+///
+/// # Arguments
+/// * `password1` - First password string slice.
+/// * `password2` - Second password string slice.
+///
+/// # Returns
+/// * `Ok(())` if passwords match,
+/// * `Err(String)` with an error message if they don't.
+pub fn do_passwords_match(password1: &str, password2: &str) -> Result<(), String> {
+    if password1 == password2 {
+        Ok(())
+    } else {
+        Err("Passwords do not match.".to_string())
+    }
 }
 
-/// Check if the password length is valid
-/// If range is none, the default range is 8..64
-fn is_password_length_valid(password: &str, range: Option<Range<usize>>) -> bool {
+/// Validates if the password length is within the specified range.
+///
+/// # Arguments
+/// * `password` - Password to validate.
+/// * `range` - Optional range for the password length. Defaults to 8..64 if None.
+///
+/// # Returns
+/// * `Ok(())` if the password length is valid,
+/// * `Err(String)` with an error message if it's not.
+pub fn is_password_length_valid(password: &str, range: Option<Range<usize>>) -> Result<(), String> {
     let range = range.unwrap_or(8..64);
-    return range.contains(&(password.len()));
+    if range.contains(&password.len()) {
+        Ok(())
+    } else {
+        Err("Password length is not valid.".to_string())
+    }
 }
 
-fn get_password_strength(password: &str) -> u8 {
+/// Computes the strength score of a password using zxcvbn.
+///
+/// # Arguments
+/// * `password` - Password to evaluate.
+///
+/// # Returns
+/// * A score representing the strength of the password.
+pub fn get_password_strength(password: &str) -> u8 {
     zxcvbn(password, &[]).unwrap().score()
 }
 
-fn get_password_warning(password: &str) -> String {
+/// Provides a warning message about the password based on zxcvbn.
+///
+/// # Arguments
+/// * `password` - Password to evaluate.
+///
+/// # Returns
+/// * A warning string if provided by zxcvbn, or an empty string if none
+pub fn get_password_warning(password: &str) -> String {
     let binding = zxcvbn(password, &[]).unwrap();
     let feedback = binding.feedback();
     if let Some(feedback) = feedback {
         feedback.warning().map_or_else(|| String::new(), |warning| warning.to_string())
     } else {
-        String::new() // Handle the case where feedback is None
+        String::new()
     }
 }
 
+/// Validates a NewUser object by checking email format, password match, length, and strength.
+///
+/// # Arguments
+/// * `user` - A reference to a NewUser object containing user registration details.
+///
+/// # Returns
+/// * `Ok(())` if all validations pass,
+/// * `Err(String)` with a specific error message if any validation fails.
 pub fn validate_user(user: &NewUser) -> Result<(), String> {
-    if !is_valid_email(&user.email) {
-        return Err("Invalid email format.".to_string());
+    is_valid_email(&user.email)?;
+    do_passwords_match(&user.password, &user.password2)?;
+    is_password_length_valid(&user.password, None)?;
+
+    let password_strength = get_password_strength(&user.password);
+    let base_warning = "Please choose a stronger password.".to_owned();
+    if password_strength < 3 {
+        let warning = get_password_warning(&user.password);
+        let warning_message = if warning.is_empty() {
+            base_warning
+        } else {
+            format!("Password is too weak: {}", warning)
+        };
+        return Err(warning_message);
     }
-    if !do_passwords_match(&user.password, &user.password2) {
-        return Err("Passwords do not match.".to_string());
-    }
-    if !is_password_length_valid(&user.password, None) {
-        return Err("Password length is not valid.".to_string());
-    }
-    if get_password_strength(&user.password) < 2 {
-        return Err("Password is too weak.".to_string());
-    }
+
     Ok(())
 }
