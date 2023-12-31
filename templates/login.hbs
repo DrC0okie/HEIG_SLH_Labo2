@@ -91,6 +91,14 @@
                         <label class="form-label" for="register_password2">Repeat password</label>
                     </div>
 
+                    <!-- Password strength progress bar -->
+                    <div id="password-strength-bar" class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar" role="progressbar" style="width: 0" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+
+                    <!-- Password strength text -->
+                    <div id="password-strength-text" class="mt-2" style="margin-bottom: 24px">Password strength:</div>
+
                     <!-- Submit button -->
                     <button type="submit" id="btn_register" class="btn btn-primary btn-block mb-3">Register</button>
                 </form>
@@ -122,6 +130,54 @@
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/5.0.0/mdb.min.js"></script>
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.1.min.js" integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+<!-- zxcvbn -->
+<script src="https://cdn.jsdelivr.net/npm/zxcvbn@4.4.2/dist/zxcvbn.js"></script>
+<!-- Include zxcvbn JavaScript library -->
+<script>
+    $(document).ready(function() {
+        $('#register_password').on('input', function() {
+            let password = $(this).val();
+            updatePasswordStrength(password);
+        });
+    });
+
+    function updatePasswordStrength(password) {
+        let strength = zxcvbn(password);
+        let strengthValue = 20 + strength.score * 20;
+
+        // Update progress bar
+        let progressBar = $('#password-strength-bar .progress-bar');
+        progressBar.css('width', strengthValue + '%');
+
+        progressBar.removeClass('bg-danger bg-warning bg-info bg-success');
+
+        // Update strength text based on the score
+        let strengthText = $('#password-strength-text');
+        switch(strength.score) {
+            case 0:
+                strengthText.text('Password strength: Too weak');
+                progressBar.addClass('bg-danger');
+                break;
+            case 1:
+                strengthText.text('Password strength: Weak');
+                progressBar.addClass('bg-danger');
+                break;
+            case 2:
+                strengthText.text('Password strength: Fair');
+                progressBar.addClass('bg-warning');
+                break;
+            case 3:
+                strengthText.text('Password strength: Good');
+                progressBar.addClass('bg-info');
+                break;
+            case 4:
+                strengthText.text('Password strength: Strong');
+                progressBar.addClass('bg-success');
+                break;
+        }
+    }
+</script>
+
 <script>
     $.postJSON = function(url, data, callback, err, json) {
         const config = {
