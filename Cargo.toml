@@ -30,3 +30,7 @@ dotenv = "0.15.0"
 zxcvbn = "2.2.2"
 regex = "1.10.2"
 lazy_static = "1.4.0"
+argon2 = "0.5.2"
+rand = "0.8.5"
+rand_core = "0.6.4"
+

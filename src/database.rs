@@ -1,5 +1,3 @@
-// Rien besoin de changer ici
-
 use std::fs::File;
 use std::sync::{RwLock, RwLockWriteGuard};
 use anyhow::{anyhow, Result};

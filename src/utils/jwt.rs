@@ -4,7 +4,7 @@ use jsonwebtoken::{encode, Header, EncodingKey, Validation, decode, DecodingKey}
 use serde::{Deserialize, Serialize};
 use std::env;
 use chrono::{Duration, Utc};
-use crate::consts::{ACCESS_EXPIRATION, REFRESH_EXPIRATION, JWT_ISSUER, ENV_KEY_NAME};
+use crate::consts;
 
 /// Role of the JWT
 #[derive(Debug, Serialize, Deserialize)]
@@ -13,6 +13,7 @@ use crate::consts::{ACCESS_EXPIRATION, REFRESH_EXPIRATION, JWT_ISSUER, ENV_KEY_N
 pub enum Role {
     Access,
     Refresh,
+    Verification,
 }
 
 /// Claims struct for JWT
@@ -29,13 +30,14 @@ struct Claims {
 pub fn create_jwt(email: &str, role: Role) -> Result<String, jsonwebtoken::errors::Error> {
     let issued_at = Utc::now();
     let expiration = issued_at + Duration::seconds(match role {
-        Role::Access => {ACCESS_EXPIRATION}
-        Role::Refresh => {REFRESH_EXPIRATION}
-    });
+        Role::Access => {consts::ACCESS_EXPIRATION}
+        Role::Refresh => {consts::REFRESH_EXPIRATION}
+        Role::Verification => {consts::VERIFICATION_EXPIRATION}
+    } as i64);
 
     // Set the claims
     let claims = Claims {
-        iss: JWT_ISSUER.to_owned(),
+        iss: consts::JWT_ISSUER.to_owned(),
         iat: issued_at.timestamp(),
         exp: expiration.timestamp(),
         email: email.to_owned(),
@@ -43,7 +45,7 @@ pub fn create_jwt(email: &str, role: Role) -> Result<String, jsonwebtoken::error
     };
 
     // retrieve the secret key from the environment
-    let secret_key = match env::var(ENV_KEY_NAME) {
+    let secret_key = match env::var(consts::ENV_KEY_NAME) {
         Ok(key) => key,
         Err(_) => return Err(jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidKeyFormat)),
     };
@@ -56,12 +58,12 @@ pub fn create_jwt(email: &str, role: Role) -> Result<String, jsonwebtoken::error
 /// Return the email contained in the JWT if its valid, otherwise return an error
 pub fn verify<T: Into<String>>(jwt: T, role: Role) -> Result<String> {
     let token = jwt.into();
-    let secret_key = env::var(ENV_KEY_NAME).expect("Key not found in .env file");
+    let secret_key = env::var(consts::ENV_KEY_NAME).expect("Key not found in .env file");
 
     // Set validation parameters
     let mut validation = Validation::default();
     let mut issuer_set = HashSet::new();
-    issuer_set.insert(JWT_ISSUER.to_owned());
+    issuer_set.insert(consts::JWT_ISSUER.to_owned());
     validation.iss = Some(issuer_set);
 
     // Decode and validate the JWT
