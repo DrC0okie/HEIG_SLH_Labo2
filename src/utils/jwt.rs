@@ -31,8 +31,8 @@ pub fn create_jwt(email: &str, role: Role) -> Result<String, jsonwebtoken::error
     let issued_at = Utc::now();
     let expiration = issued_at + Duration::seconds(match role {
         Role::Access => {consts::ACCESS_EXPIRATION}
-        Role::Refresh => {consts::REFRESH_EXPIRATION}
-        Role::Verification => {consts::VERIFICATION_EXPIRATION}
+        Role::Refresh => {consts::REFRESH_EXP }
+        Role::Verification => {consts::VERIFICATION_EXP }
     } as i64);
 
     // Set the claims
