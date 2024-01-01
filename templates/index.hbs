@@ -173,13 +173,19 @@
         }
 
         function verification_status() {
-            const params = new URLSearchParams(window.location.search)
-            const verify_status = params.get('verify')
-            if (verify_status !== null) {
-                if (verify_status === "ok") {
-                    $('#verify_success').text('Account verification successful')
+            const params = new URLSearchParams(window.location.search);
+            const verifyStatus = params.get('verify');
+            let message = params.get('message');
+
+            if (verifyStatus !== null) {
+                // Decode the message if not null, else use a default message
+                message = (message !== null && message !== '') ? decodeURIComponent(message) :
+                        (verifyStatus === "ok" ? 'Account verification successful' : 'Account verification failed');
+
+                if (verifyStatus === "ok") {
+                    $('#verify_success').text(message);
                 } else {
-                    $('#verify_error').text('Account verification failed')
+                    $('#verify_error').text(message);
                 }
             }
         }

@@ -17,7 +17,7 @@ use crate::email;
 use crate::utils::input_validation as Input;
 use crate::utils::hashing;
 use crate::utils::jwt;
-const ERR_MSG: &str = "Internal server error";
+const ERR_MSG: &str = "Internal server error, please retry";
 pub async fn register(Json(user): Json<NewUser>) -> axum::response::Result<StatusCode> {
     info!("Attempting to register new user");
 
@@ -35,32 +35,32 @@ pub async fn register(Json(user): Json<NewUser>) -> axum::response::Result<Statu
 
 pub async fn verify(Path(token): Path<String>) -> Redirect {
     info!("Verify account");
+    let msg = urlencoding::encode("Invalid or expired verification link");
 
-    // Step 1: Verify JWT
-    match jwt::verify(&token, jwt::Role::Verification) {
-        Ok(email) => {
-            // Step 2: Consume the token
-            match database::token::consume(token) {
-                Ok(_) => {
-                    // Step 3: Update user's verified status
-                    if let Err(e) = database::user::verify(&email) {
-                        info!("Failed to set user as verified: {}", e);
-                        return Redirect::to("/?verify=failed");
-                    }
-                    Redirect::to("/?verify=ok")
-                }
-                Err(e) => {
-                    info!("Token consumption error: {}", e);
-                    Redirect::to("/?verify=failed")
-                }
-            }
-        }
+    // Consume the token
+    if let Err(e) = database::token::consume(token.clone()).map_err(|e| e.to_string()) {
+        error!("Token consumption error: {}", e);
+        return Redirect::to(&*format!("/?verify=failed&message={}", &msg));
+    }
+
+    // Verify JWT
+    let mail = match jwt::verify(token, jwt::Role::Verification) {
+        Ok(email) => email.clone(),
         Err(e) => {
             info!("JWT verification error: {}", e);
-            Redirect::to("/?verify=failed")
+            return Redirect::to(&*format!("/?verify=failed&message={}", &msg));
         }
+    };
+
+    // Update user's verified status
+    if let Err(e) = database::user::verify(&mail) {
+        error!("Failed to set user as verified: {}", e);
+        return Redirect::to("/?verify=failed");
     }
+
+    Redirect::to("/?verify=ok")
 }
+
 
 pub async fn login(Json(user_login): Json<UserLogin>) -> axum::response::Result<Json<Token>> {
     info!("Login user");

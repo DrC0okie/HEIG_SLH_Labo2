@@ -33,4 +33,6 @@ lazy_static = "1.4.0"
 argon2 = "0.5.2"
 rand = "0.8.5"
 rand_core = "0.6.4"
+urlencoding = "2.1.3"
+
 
