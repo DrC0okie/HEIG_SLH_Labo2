@@ -11,6 +11,8 @@ lazy_static! {
     ).unwrap();
     }
 
+pub const MIN_PASSWORD_STRENGTH: u8 = 3;
+
 /// Validates the format of an email address.
 ///
 /// # Arguments
@@ -87,7 +89,7 @@ pub fn validate_user(user: &NewUser) -> Result<(), String> {
     is_password_length_valid(&user.password, None)?;
 
     let password_strength = get_password_strength(&user.password);
-    if password_strength < 3 {
+    if password_strength < MIN_PASSWORD_STRENGTH {
         return Err("Password is too weak.".to_owned());
     }
 

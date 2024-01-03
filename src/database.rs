@@ -43,6 +43,7 @@ pub mod user {
         save(db).ok();
         Ok(true)
     }
+
     pub fn get(email: &str) -> Option<User> {
         info!("Retrieve user from DB");
         DB.read().ok()?.get(email).cloned()

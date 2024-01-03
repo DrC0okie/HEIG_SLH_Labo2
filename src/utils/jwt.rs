@@ -18,7 +18,7 @@ pub enum Role {
 
 /// Claims struct for JWT
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
+struct Claims{
     iss: String,
     iat: i64,
     exp: i64,
