@@ -92,6 +92,5 @@ pub fn validate_user(user: &NewUser) -> Result<(), String> {
     if password_strength < MIN_PASSWORD_STRENGTH {
         return Err("Password is too weak.".to_owned());
     }
-
     Ok(())
 }

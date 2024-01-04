@@ -1,19 +1,27 @@
-use axum_extra::extract::cookie::Cookie;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
-use log::info;
+use http::StatusCode;
+use log::{error, info};
 use crate::backend::middlewares::RefreshUser;
+use crate::utils;
 
 pub async fn get_access(user: RefreshUser, jar: CookieJar) -> axum::response::Result<CookieJar> {
     info!("Get access JWT from refresh JWT");
-    // User's refresh token is already checked through the extractor RefreshUser
-    // You can trust the email given in the parameter "user"
 
-    let jwt: String = Default::default(); // TODO : Create access JWT for email in user
+    // Create access JWT for the email from RefreshUser
+    let jwt = utils::jwt::create_jwt(&user.email, utils::jwt::Role::Access)
+        .map_err(|e| {
+            error!("JWT creation error: {}", e);
+            axum::response::IntoResponse::into_response(StatusCode::INTERNAL_SERVER_ERROR)
+        })?;
 
-    // Add JWT to jar
+    // Add JWT to jar and set cookie parameters
     let cookie = Cookie::build(("access", jwt))
-        // TODO : Optionally set cookie's parameters
-        ;
+        .http_only(true)
+        .secure(true)
+        .same_site(SameSite::Strict)
+        .path("/");
+
     let jar = jar.add(cookie);
 
     Ok(jar)
