@@ -132,7 +132,7 @@
 <script src="https://code.jquery.com/jquery-3.6.1.min.js" integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
 <!-- zxcvbn -->
 <script src="https://cdn.jsdelivr.net/npm/zxcvbn@4.4.2/dist/zxcvbn.js"></script>
-<!-- Include zxcvbn JavaScript library -->
+
 <script>
     $(document).ready(function() {
         $('#register_password').on('input', function() {
@@ -177,9 +177,7 @@
                 break;
         }
     }
-</script>
 
-<script>
     $.postJSON = function(url, data, callback, err, json) {
         const config = {
             'type': 'POST',

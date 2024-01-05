@@ -13,7 +13,6 @@ use crate::consts;
 pub enum Role {
     Access,
     Refresh,
-    Verification,
 }
 
 /// Claims struct for JWT
@@ -32,7 +31,6 @@ pub fn create_jwt(email: &str, role: Role) -> Result<String, jsonwebtoken::error
     let expiration = issued_at + Duration::seconds(match role {
         Role::Access => {consts::ACCESS_EXPIRATION}
         Role::Refresh => {consts::REFRESH_EXP }
-        Role::Verification => {consts::VERIFICATION_EXP }
     } as i64);
 
     // Set the claims

@@ -9,68 +9,71 @@ use serde_json::json;
 use time::{Duration, OffsetDateTime};
 use tower_sessions::Session;
 use uuid::Uuid;
+use crate::utils::rand::rand_base64;
 use crate::{consts, HBS, database as DB, utils, email, backend};
+use crate::utils::hashing::verify_password;
+use crate::utils::input_validation::validate_user;
 
+/// Registers a new user in the database and sends a verification email.
+/// # Arguments
+/// * `user` - A `NewUser` struct containing the user's email and password.
+/// # Returns
+/// * `Ok(StatusCode)` - Indicates that the user was successfully registered.
+/// * `Err(axum::response::Result<StatusCode>)` - An error response in case of failure.
 pub async fn register(Json(user): Json<backend::models::NewUser>) -> axum::response::Result<StatusCode> {
     info!("Attempting to register new user");
-    let mut error = false;
 
-    utils::input_validation::validate_user(&user)?;
+    // Input validation on the password and email
+    validate_user(&user).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    // Hash the password
-    let hash = utils::hashing::hash_password(&user.password.as_bytes()).unwrap_or_else(|e| {
-        error!("Hashing error: {}", e);
-        error = true;
-        utils::hashing::DUMMY_HASH.to_string()
-    });
+    let hash = utils::hashing::hash_password(&user.password.as_bytes()).map_err(|_| {
+        internal_error("Failed to hash the password")
+    })?;
 
-    // Create verification JWT
-    let token = utils::jwt::create_jwt(&user.email, utils::jwt::Role::Verification).unwrap_or_else(|e| {
-        error!("Jwt creation error: {}", e);
-        error = true;
-        "".to_string()
-    });
+    // Generate a random verification token
+    let otp = rand_base64();
 
-    // Check if the user already exists
-    let exists = DB::user::exists(&user.email).unwrap_or_else(|e| {
-        error!("DB operation error: {}", e);
-        error = true;
-        false
-    });
+    let exists = DB::user::exists(&user.email).map_err(|_| {
+        internal_error("Failed to check if user exists")
+    })?;
 
+    send_email(&user.email, &prepare_email_content(&otp, exists))?;
 
-    if error {
-        return internal_error("Failed to register user");
-    }
+    // Add the user to the DB
+    DB::user::create(&user.email, &hash).map_err(|e| {
+        internal_error(format!("Failed to create user: {}", e).as_str())
+    })?;
 
-    send_email(&user.email, &prepare_email_content(&token, exists))?;
-    add_user_and_token(&user.email, &hash, &token)?;
+    // Add the token to the DB
+    DB::token::add(&user.email, &otp, std::time::Duration::from_secs(consts::VERIFICATION_EXP)).map_err(|e| {
+        internal_error(format!("Failed to add token to DB: {}", e).as_str())
+    })?;
 
     info!("New user registration successful");
     Ok(StatusCode::OK)
 }
 
+/// Verifies a user's account by consuming the verification token and setting the user's verified status to true.
+/// # Arguments
+/// * `token` - A string slice representing the verification token.
+/// # Returns
+/// * `Redirect` - A redirect to the index page with a message indicating whether the verification was successful.
+/// * `Err(axum::response::Result<StatusCode>)` - An error response in case of failure.
 pub async fn verify(Path(token): Path<String>) -> Redirect {
     info!("Verify account");
     let msg = urlencoding::encode("Invalid or expired verification link");
 
     // Consume the token
-    if let Err(e) = DB::token::consume(token.clone()).map_err(|e| e.to_string()) {
-        error!("Token consumption error: {}", e);
-        return Redirect::to(&*format!("/?verify=failed&message={}", &msg));
-    }
-
-    // Verify JWT
-    let mail = match utils::jwt::verify(token, utils::jwt::Role::Verification) {
-        Ok(email) => email.clone(),
+    let email = match DB::token::consume(token) {
+        Ok(email) => email,
         Err(e) => {
-            error!("JWT verification error: {}", e);
+            error!("Token consumption error: {}", e);
             return Redirect::to(&*format!("/?verify=failed&message={}", &msg));
         }
     };
 
     // Update user's verified status
-    if let Err(e) = DB::user::verify(&mail) {
+    if let Err(e) = DB::user::verify(&email) {
         error!("Failed to set user as verified: {}", e);
         return Redirect::to("/?verify=failed");
     }
@@ -79,20 +82,24 @@ pub async fn verify(Path(token): Path<String>) -> Redirect {
     Redirect::to("/?verify=ok")
 }
 
+/// Logs a user in in a time constant manner.
+/// # Arguments
+/// * `user_login` - A `UserLogin` struct containing the user's email and password.
+/// # Returns
+/// * `Ok(Json<Token>)` - A JSON object containing the JWT.
+/// * `Err(axum::response::Result<StatusCode>)` - An error response in case of failure.
 pub async fn login(Json(user_login): Json<backend::models::UserLogin>) -> axum::response::Result<Json<backend::models::Token>> {
-    info!("Login user");
+    info!("Attempting to log a user in");
 
     let exists = DB::user::exists(&user_login.email).unwrap_or_else(|e| {
         error!("{}", e);
         false
     });
-    info!("User exists in the DB: {}", exists);
 
     let verified = DB::user::verified(&user_login.email).unwrap_or_else(|e| {
         error!("{}", e);
         false
     });
-    info!("User is verified: {}", verified);
 
     let token = utils::jwt::create_jwt(&user_login.email, utils::jwt::Role::Refresh).unwrap_or_else(|e| {
         error!("{}", e);
@@ -104,16 +111,14 @@ pub async fn login(Json(user_login): Json<backend::models::UserLogin>) -> axum::
         Some(u) => u.hash,
     };
 
-    let password_ok = utils::hashing::verify_password(hash.as_str(), &user_login.password.as_bytes()).unwrap_or_else(|e| {
-        error!("{}", e);
-        false
-    });
-    info!("User credentials are valid: {}", password_ok);
+    let password_ok = verify_password(hash.as_str(), &user_login.password.as_bytes()).unwrap_or_else(|_| false);
 
     if !exists || !verified || !password_ok {
+        info!("Login failed");
         return Err(axum::response::IntoResponse::into_response((StatusCode::UNAUTHORIZED, "Login failed")).into());
     }
 
+    info!("Login successful");
     Ok(Json::from(backend::models::Token { token }))
 }
 
@@ -160,26 +165,6 @@ pub async fn logout(jar: CookieJar) -> (CookieJar, Redirect) {
 
 pub async fn login_page() -> impl IntoResponse {
     Html(HBS.render("login", &Some(())).unwrap())
-}
-
-/// Attempts to create a new user in the database with the provided email and hashed password.
-/// If successful, it then adds a verification token associated with the user.
-/// # Arguments
-/// * `email` - A string slice representing the user's email address.
-/// * `password_hash` - A string slice representing the hashed password of the user.
-/// * `token` - A string slice representing the verification token to be added to the database.
-/// # Returns
-/// * `Ok(())` - Indicates that both the user and token were successfully added to the database.
-/// * `Err(axum::response::Result<StatusCode>)` - Returns an internal server error response in case of failure
-fn add_user_and_token(email: &str, password_hash: &str, token: &str) -> Result<(), axum::response::Result<StatusCode>> {
-    DB::user::create(email, password_hash).map_err(|e| {
-        internal_error(format!("Failed to create user: {}", e).as_str())
-    }).map(|_| ()).and(DB::token::add(email, token, std::time::Duration::from_secs(consts::VERIFICATION_EXP)).map_err(|e| {
-        internal_error(format!("Failed to add token to DB: {}", e).as_str())
-    }).map(|_| ())).map(|_| ()).map(|_| {
-        info!("User and token added to the DB");
-        ()
-    })
 }
 
 /// Prepares the content of the email to be sent to the user.

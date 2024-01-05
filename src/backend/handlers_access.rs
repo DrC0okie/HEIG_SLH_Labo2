@@ -1,15 +1,18 @@
 use axum::Json;
-use axum_extra::handler::HandlerCallWithExtractors;
 use http::StatusCode;
-use log::info;
+use log::{error, info};
 use tower_sessions::Session;
 use crate::backend::middlewares::AccessUser;
 use crate::backend::models::ChangePassword;
+use crate::utils::{input_validation::validate_passwords, hashing::verify_password, hashing::hash_password, hashing::DUMMY_HASH};
+use crate::{database as DB, email};
 
-pub async fn change_password (
+const ERR_MSG: &str = "Server error, something went wrong";
+
+pub async fn change_password(
     session: Session,
     user: AccessUser,
-    Json(parameters): Json<ChangePassword>
+    Json(parameters): Json<ChangePassword>,
 ) -> axum::response::Result<StatusCode> {
     info!("Changing user's password");
 
@@ -29,6 +32,37 @@ pub async fn change_password (
         Err((StatusCode::BAD_REQUEST, "Anti-CSRF tokens don't match"))?;
     }
 
-    // TODO : Check the parameters then update the DB with the new password
-    return Err((StatusCode::BAD_REQUEST, "Function 'change_password' not implemented").into());
+    // Input validation on the new passwords
+    validate_passwords(&parameters.password, &parameters.password2).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    // Check that the old password is correct
+    let old_hash = match DB::user::get(&user.email) {
+        None => DUMMY_HASH.to_string(),
+        Some(u) => u.hash,
+    };
+
+    match verify_password(old_hash.as_str(), &parameters.old_password.as_bytes()) {
+        Ok(true) => {},
+        Ok(false) => {return Err((StatusCode::BAD_REQUEST, "Old password is wrong").into())},
+        Err(_) => {return Err((StatusCode::BAD_REQUEST, ERR_MSG).into())},
+    };
+
+    // Hash the new password
+    let new_hash = hash_password(&parameters.password.as_bytes())
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, ERR_MSG))?;
+
+    // Send email to the user to notify that the password has been changed
+    let subject = "Password changed";
+    let body = "Your password has been changed. If you didn't do it, please contact us.";
+
+    email::send_mail(&user.email, subject, body).map_err(|e| {
+        error!("Error sending email: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, ERR_MSG)
+    })?;
+
+    // Update the DB
+    DB::user::change_password(&user.email, &new_hash).map_err(|e| {
+        error!("Error updating user password in DB: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, ERR_MSG).into()
+    }).map(|_| StatusCode::OK)
 }

@@ -1,8 +1,9 @@
 use std::ops::Range;
 use regex::Regex;
 use lazy_static::lazy_static;
+use log::info;
 use zxcvbn::zxcvbn;
-use crate::backend::models::NewUser;
+use crate::backend::models::{NewUser};
 
 // Compile the email regex once and use it across function calls.
 lazy_static! {
@@ -25,7 +26,9 @@ pub fn is_valid_email(email: &str) -> Result<(), String> {
     if EMAIL_REGEX.is_match(email) {
         Ok(())
     } else {
-        Err("Invalid email format.".to_string())
+        let msg = "Invalid email format";
+        info!("{}", msg);
+        Err(msg.to_string())
     }
 }
 
@@ -42,7 +45,9 @@ pub fn do_passwords_match(password1: &str, password2: &str) -> Result<(), String
     if password1 == password2 {
         Ok(())
     } else {
-        Err("Passwords do not match.".to_string())
+        let msg = "Passwords do not match.";
+        info!("{}", msg);
+        Err(msg.to_string())
     }
 }
 
@@ -60,7 +65,9 @@ pub fn is_password_length_valid(password: &str, range: Option<Range<usize>>) -> 
     if range.contains(&password.len()) {
         Ok(())
     } else {
-        Err("Password length is not valid.".to_string())
+        let msg = format!("Password length is not valid, must be between {} and {} characters.", range.start, range.end);
+        info!("{}", msg);
+        Err(msg.to_string())
     }
 }
 
@@ -85,12 +92,18 @@ pub fn get_password_strength(password: &str) -> u8 {
 /// * `Err(String)` with a specific error message if any validation fails.
 pub fn validate_user(user: &NewUser) -> Result<(), String> {
     is_valid_email(&user.email)?;
-    do_passwords_match(&user.password, &user.password2)?;
-    is_password_length_valid(&user.password, None)?;
+    info!("Email input valid.");
+    validate_passwords(&user.password, &user.password2)
+}
 
-    let password_strength = get_password_strength(&user.password);
+pub fn validate_passwords(password: &str, password2: &str) -> Result<(), String> {
+    do_passwords_match(password, password2)?;
+    is_password_length_valid(password, None)?;
+
+    let password_strength = get_password_strength(password);
     if password_strength < MIN_PASSWORD_STRENGTH {
         return Err("Password is too weak.".to_owned());
     }
+    info!("Password input valid.");
     Ok(())
 }
