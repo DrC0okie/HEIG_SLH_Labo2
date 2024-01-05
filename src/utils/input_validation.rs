@@ -96,6 +96,7 @@ pub fn validate_user(user: &NewUser) -> Result<(), String> {
     validate_passwords(&user.password, &user.password2)
 }
 
+
 pub fn validate_passwords(password: &str, password2: &str) -> Result<(), String> {
     do_passwords_match(password, password2)?;
     is_password_length_valid(password, None)?;
@@ -106,4 +107,137 @@ pub fn validate_passwords(password: &str, password2: &str) -> Result<(), String>
     }
     info!("Password input valid.");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// Ensure the function returns Ok(()) for a valid email.
+    fn test_is_valid_email() {
+        assert!(is_valid_email("test@example.com").is_ok());
+    }
+
+    #[test]
+    ///Ensure the function returns an error for an invalid email.
+    fn test_is_invalid_email() {
+        assert!(is_valid_email("invalid-email").is_err());
+    }
+
+    #[test]
+    /// Check if the function returns Ok(()) when passwords match.
+    fn test_do_passwords_match() {
+        assert!(do_passwords_match("password123", "password123").is_ok());
+    }
+
+    #[test]
+    /// Check for an error when passwords don't match.
+    fn test_non_matching_passwords() {
+        assert!(do_passwords_match("password123", "different").is_err());
+    }
+
+    #[test]
+    /// Check if the function returns Ok(()) when the password length is within the specified range.
+    fn test_is_password_length_valid() {
+        // Within the range
+        assert!(is_password_length_valid("1234", Some(0..8)).is_ok());
+        // At the start of the range
+        assert!(is_password_length_valid("12345678", Some(8..64)).is_ok());
+        // At the end of the range
+        assert!(is_password_length_valid("1234567", Some(1..8)).is_ok());
+        // inversed range
+        assert!(is_password_length_valid("12345", Some(8..1)).is_err());
+        // default range
+        assert!(is_password_length_valid("12345678", None).is_ok());
+        // out of range
+        assert!(is_password_length_valid("12345678", Some(1..8)).is_err());
+        // out of range
+        assert!(is_password_length_valid("1", Some(2..8)).is_err());
+    }
+
+    #[test]
+    /// Check if a valid user and passwords passes all validations.
+    fn test_validate_user_and_passwords() {
+
+        let too_short_pasword = "hello";
+        let too_long_password = "myVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLargePassword";
+        let too_weak_password = "password123";
+        let valid_password_1 = "MyFirstValidAndStrongAndBeautifulPassword";
+        let valid_password_2 = "MySecondValidAndStrongAndBeautifulPassword";
+        let valid_email_user = "valid@valid.ch";
+        let invalid_email_user = "invalid";
+
+
+        let password_too_short = NewUser {
+            email: valid_email_user.to_string(),
+            password: too_short_pasword.to_string(),
+            password2: too_short_pasword.to_string(),
+        };
+
+        let password_too_long = NewUser {
+            email: valid_email_user.to_string(),
+            password: too_long_password.to_string(),
+            password2: too_long_password.to_string(),
+        };
+
+        let password_does_not_match = NewUser {
+            email: valid_email_user.to_string(),
+            password: valid_password_1.to_string(),
+            password2: valid_password_2.to_string(),
+        };
+
+        let invalid_email = NewUser {
+            email: invalid_email_user.to_string(),
+            password: valid_password_1.to_string(),
+            password2: valid_password_1.to_string(),
+        };
+
+        let valid_email = NewUser {
+            email: valid_email_user.to_string(),
+            password: valid_password_1.to_string(),
+            password2: valid_password_1.to_string(),
+        };
+
+        let password_too_weak = NewUser {
+            email: valid_email_user.to_string(),
+            password: too_weak_password.to_string(),
+            password2: too_weak_password.to_string(),
+        };
+
+        //valid password
+        assert!(validate_passwords(&valid_password_1, &valid_password_1).is_ok());
+
+        // password too short
+        assert!(validate_passwords(too_short_pasword, too_short_pasword).is_err());
+
+        // password too long
+        assert!(validate_passwords(too_long_password, too_long_password).is_err());
+
+        // passwords do not match
+        assert!(validate_passwords(valid_password_1, valid_password_2).is_err());
+
+        //passwords too weak
+        assert!(validate_passwords(too_weak_password, too_weak_password).is_err());
+
+        //-----------NewUsers
+
+        //user with valid email
+        assert!(validate_user(&valid_email).is_ok());
+
+        //user with valid email
+        assert!(validate_user(&password_too_short).is_err());
+
+        //user with password too long
+        assert!(validate_user(&password_too_long).is_err());
+
+        //user with passwords not matching
+        assert!(validate_user(&password_does_not_match).is_err());
+
+        //user with invalid email
+        assert!(validate_user(&invalid_email).is_err());
+
+        //user with password too weak
+        assert!(validate_user(&password_too_weak).is_err());
+    }
 }

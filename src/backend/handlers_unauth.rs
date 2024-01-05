@@ -13,6 +13,7 @@ use crate::utils::rand::rand_base64;
 use crate::{consts, HBS, database as DB, utils, email, backend};
 use crate::utils::hashing::verify_password;
 use crate::utils::input_validation::validate_user;
+use crate::utils::jwt::get_secret_key;
 
 /// Registers a new user in the database and sends a verification email.
 /// # Arguments
@@ -101,7 +102,9 @@ pub async fn login(Json(user_login): Json<backend::models::UserLogin>) -> axum::
         false
     });
 
-    let token = utils::jwt::create_jwt(&user_login.email, utils::jwt::Role::Refresh).unwrap_or_else(|e| {
+    let key = get_secret_key().unwrap();
+
+    let token = utils::jwt::create_jwt(&user_login.email, utils::jwt::Role::Refresh, key.as_str(), None).unwrap_or_else(|e| {
         error!("{}", e);
         "".to_string()
     });
