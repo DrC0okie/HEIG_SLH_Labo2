@@ -245,7 +245,7 @@
                 '/register',
                 data,
                 function(data) {
-                    $('#register_success').text("Account created. Click the link sent by email to create your account.")
+                    $('#register_success').text("Registration request received. If the provided information is valid, you will receive a confirmation email.")
                 },
                 data => {
                     $('#register_error').text(data.responseText)

@@ -5,7 +5,7 @@ use tower_sessions::Session;
 use crate::backend::middlewares::AccessUser;
 use crate::backend::models::ChangePassword;
 use crate::utils::{input_validation::validate_passwords, hashing::verify_password, hashing::hash_password, hashing::DUMMY_HASH};
-use crate::{database as DB, email};
+use crate::{database as DB, email, utils};
 
 const ERR_MSG: &str = "Server error, something went wrong";
 
@@ -32,7 +32,14 @@ pub async fn change_password(
         Err((StatusCode::BAD_REQUEST, "Anti-CSRF tokens don't match"))?;
     }
 
+    // Input length validation on the old password
+    utils::input_validation::is_password_length_valid(&parameters.password, None).map_err(|e| {
+        error!("{}", e);
+        (StatusCode::BAD_REQUEST, e)
+    })?;
+
     // Input validation on the new passwords
+    // We don't care is the old password is the same as the new one. In this case, the user is just stupid
     validate_passwords(&parameters.password, &parameters.password2).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // Check that the old password is correct
@@ -61,8 +68,15 @@ pub async fn change_password(
     })?;
 
     // Update the DB
-    DB::user::change_password(&user.email, &new_hash).map_err(|e| {
-        error!("Error updating user password in DB: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, ERR_MSG).into()
-    }).map(|_| StatusCode::OK)
+    match DB::user::change_password(&user.email, &new_hash){
+        Ok(true) => Ok(StatusCode::OK),
+        Ok(false) => {
+            error!("User not found, this should never happen as the user is logged");
+            Err((StatusCode::INTERNAL_SERVER_ERROR, ERR_MSG).into())
+        },
+        Err(e) => {
+            error!("Error changing password: {}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, ERR_MSG).into())
+        },
+    }
 }

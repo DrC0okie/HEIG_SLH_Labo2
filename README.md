@@ -63,11 +63,11 @@ Stored on the client side in the local storage. The local storage is a web stora
 
 #### Access tokens
 
-Yes, it is a good idea to store it in a cookie and are automatically sent with every request to the same domain,  which is easy for maintaining a session. They are configured as **HttpOnly**, preventing JavaScript access and mitigating the risk of XSS attacks, and use the **SameSite** attribute to prevent them from being sent in cross-site requests. In addition with the usage of anti-CSRF tokens, it mitigates CSRF attacks.
+Yes, it is a good idea to store access tokens in a cookie and are automatically sent with every request to the same domain,  which is easy for maintaining a session. They are configured as **HttpOnly**, preventing JavaScript access and mitigating the risk of XSS attacks, and use the **SameSite** attribute to prevent them from being sent in cross-site requests. In addition with the usage of anti-CSRF tokens, it mitigates CSRF attacks.
 
 #### Refresh tokens
 
-No, it is not a good idea. While, it is easier to use and persist across browser sessions, it is vulnerable to XSS attacks. If a script can inject malicious code into our application, it can steal tokens from local storage. We should store the refresh tokens in the database (server-side) and implement the refresh token rotation strategy as mentioned in the [Question 1](####But-what-if-someone-hijacks-the-refresh-token?).
+No, it is not a good idea to store the refresh tokens on the client side. While, it is easier to use and persist across browser sessions, it is vulnerable to XSS attacks. If a script can inject malicious code into our application, it can steal tokens from local storage. We should store the refresh tokens in the database (server-side) and implement the refresh token rotation strategy as mentioned in the [Question 1](####But-what-if-someone-hijacks-the-refresh-token?).
 
 
 

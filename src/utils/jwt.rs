@@ -124,7 +124,7 @@ mod tests {
     fn test_verify_jwt_expired() {
         dotenv::dotenv().ok();
         let email = "test@example.com";
-        let jwt = create_jwt(email, Role::Access, get_secret_key().unwrap().as_str(), None);
+        let jwt = create_jwt(email, Role::Access, get_secret_key().unwrap().as_str(), Some(Duration::seconds(1)));
         assert!(jwt.is_ok(), "JWT creation should succeed with valid parameters");
 
         thread::sleep(std::time::Duration::from_secs(2)); // assuming the token expires immediately

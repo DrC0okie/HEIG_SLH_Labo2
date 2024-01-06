@@ -35,11 +35,15 @@ pub async fn register(Json(user): Json<backend::models::NewUser>) -> axum::respo
     // Generate a random verification token
     let otp = rand_base64();
 
-    let exists = DB::user::exists(&user.email).map_err(|_| {
-        internal_error("Failed to check if user exists")
+    let exists = DB::user::exists(&user.email).map_err(|e| {
+        internal_error(format!("Failed to check if user exists: {}", e).as_str())
     })?;
 
     send_email(&user.email, &prepare_email_content(&otp, exists))?;
+
+    if exists {
+        return Ok(StatusCode::OK);
+    }
 
     // Add the user to the DB
     DB::user::create(&user.email, &hash).map_err(|e| {
@@ -75,10 +79,14 @@ pub async fn verify(Path(token): Path<String>) -> Redirect {
     };
 
     // Update user's verified status
-    if let Err(e) = DB::user::verify(&email) {
-        error!("Failed to set user as verified: {}", e);
-        return Redirect::to("/?verify=failed");
-    }
+    match DB::user::verify(&email) {
+        Ok(true) => {},
+        Ok(false) => return Redirect::to("/?verify=failed"),
+        Err(e) => {
+            error!("Failed to set user as verified: {}", e);
+            return Redirect::to("/?verify=failed");
+        }
+    };
 
     info!("User successfully verified");
     Redirect::to("/?verify=ok")
@@ -92,6 +100,16 @@ pub async fn verify(Path(token): Path<String>) -> Redirect {
 /// * `Err(axum::response::Result<StatusCode>)` - An error response in case of failure.
 pub async fn login(Json(user_login): Json<backend::models::UserLogin>) -> axum::response::Result<Json<backend::models::Token>> {
     info!("Attempting to log a user in");
+
+    // Input validation on the email
+    utils::input_validation::is_email_valid(&user_login.email).map_err(|e| {
+        axum::response::IntoResponse::into_response((StatusCode::BAD_REQUEST, e))
+    })?;
+
+    // Input length validation on the password
+    utils::input_validation::is_password_length_valid(&user_login.password, None).map_err(|e| {
+        axum::response::IntoResponse::into_response((StatusCode::BAD_REQUEST, e))
+    })?;
 
     let exists = DB::user::exists(&user_login.email).unwrap_or_else(|e| {
         error!("{}", e);

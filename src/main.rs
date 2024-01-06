@@ -22,8 +22,8 @@ static HBS: Lazy<Handlebars> = Lazy::new(|| {
 
 #[tokio::main]
 async fn main() {
-
     dotenv::dotenv().ok();
+    utils::hashing::init();
 
     env_logger::builder()
         .filter_level(log::LevelFilter::Trace)

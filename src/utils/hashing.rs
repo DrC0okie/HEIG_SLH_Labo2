@@ -60,6 +60,11 @@ pub fn verify_password(hashed_password: &str, password: &[u8]) -> Result<bool, S
     }
 }
 
+/// Initializes the dummy hash.
+pub fn init(){
+    let _ = DUMMY_HASH.to_string();
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

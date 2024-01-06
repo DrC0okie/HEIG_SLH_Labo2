@@ -22,7 +22,7 @@ pub const MIN_PASSWORD_STRENGTH: u8 = 3;
 /// # Returns
 /// * `Ok(())` if the email format is valid,
 /// * `Err(String)` with an error message if the format is invalid.
-pub fn is_valid_email(email: &str) -> Result<(), String> {
+pub fn is_email_valid(email: &str) -> Result<(), String> {
     if EMAIL_REGEX.is_match(email) {
         Ok(())
     } else {
@@ -91,7 +91,7 @@ pub fn get_password_strength(password: &str) -> u8 {
 /// * `Ok(())` if all validations pass,
 /// * `Err(String)` with a specific error message if any validation fails.
 pub fn validate_user(user: &NewUser) -> Result<(), String> {
-    is_valid_email(&user.email)?;
+    is_email_valid(&user.email)?;
     info!("Email input valid.");
     validate_passwords(&user.password, &user.password2)
 }
@@ -116,13 +116,13 @@ mod tests {
     #[test]
     /// Ensure the function returns Ok(()) for a valid email.
     fn test_is_valid_email() {
-        assert!(is_valid_email("test@example.com").is_ok());
+        assert!(is_email_valid("test@example.com").is_ok());
     }
 
     #[test]
     ///Ensure the function returns an error for an invalid email.
     fn test_is_invalid_email() {
-        assert!(is_valid_email("invalid-email").is_err());
+        assert!(is_email_valid("invalid-email").is_err());
     }
 
     #[test]
