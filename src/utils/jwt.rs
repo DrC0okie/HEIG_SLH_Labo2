@@ -102,7 +102,7 @@ mod tests {
     fn test_verify_jwt_valid() {
         dotenv::dotenv().ok();
         let email = "test@example.com";
-        let jwt = create_jwt(email, Role::Access,get_secret_key().unwrap().as_str(), None);
+        let jwt = create_jwt(email, Role::Access, get_secret_key().unwrap().as_str(), None);
         assert!(jwt.is_ok(), "JWT creation should succeed with valid parameters");
 
         let verification = verify(jwt.unwrap(), Role::Access, get_secret_key().unwrap().as_str());
