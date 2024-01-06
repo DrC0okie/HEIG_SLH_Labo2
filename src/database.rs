@@ -68,6 +68,8 @@ pub mod user {
         user.hash = new_hash.to_string();
 
         trace!("Password changed");
+
+        save(db).ok();
         Ok(true)
     }
 

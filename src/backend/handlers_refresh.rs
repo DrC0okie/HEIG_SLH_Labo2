@@ -12,8 +12,7 @@ pub async fn get_access(user: RefreshUser, jar: CookieJar) -> axum::response::Re
     let key = get_secret_key().unwrap();
 
     // Create access JWT for the email from RefreshUser
-    let jwt = utils::jwt::create_jwt(&user.email, utils::jwt::Role::Access, key.as_str(), None)
-        .map_err(|e| {
+    let jwt = utils::jwt::create_jwt(&user.email, utils::jwt::Role::Access, key.as_str(), None).map_err(|e| {
             error!("JWT creation error: {}", e);
             axum::response::IntoResponse::into_response(StatusCode::INTERNAL_SERVER_ERROR)
         })?;
