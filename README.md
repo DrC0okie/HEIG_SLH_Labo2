@@ -75,7 +75,7 @@ No, it is not a good idea to store the refresh tokens on the client side. While,
 
 
 
-## (unrelated) DB not saved after a user password change
+## DB not saved after a user password change
 
 In the given code base, the new password is never saved in the mocked database. I don't know if it was a deliberate implementation choice, but if we want to fix this behavior, we have to modify the `change_password` function:
 
