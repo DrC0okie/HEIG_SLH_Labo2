@@ -4,6 +4,10 @@
 
 **Author: ** Timothée Van Hove
 
+![](figures/title.png)
+
+
+
 ## Introduction
 
 The goal of this lab is to manage the authentication of a simple website. The authentication is managed with JWT access and refresh tokens. The only functionalities of the website are to register, login, and change password.
