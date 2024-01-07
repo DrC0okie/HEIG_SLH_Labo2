@@ -10,11 +10,10 @@ use time::{Duration, OffsetDateTime};
 use tower_sessions::Session;
 use uuid::Uuid;
 use crate::utils::rand::rand_base64;
-use crate::{consts, HBS, database as DB, utils, email, backend};
-use crate::utils::hashing::verify_password;
-use crate::utils::input_validation::validate_user;
-use crate::utils::jwt::get_secret_key;
-use crate::utils::jwt::create_jwt;
+use crate::{consts, HBS, database as DB, email, backend};
+use crate::utils::hashing::{verify_password, hash_password, DUMMY_HASH};
+use crate::utils::input_validation::{validate_user, is_email_valid, is_password_length_valid};
+use crate::utils::jwt::{get_secret_key, create_jwt, Role};
 
 /// Registers a new user in the database and sends a verification email.
 /// # Arguments
@@ -28,7 +27,7 @@ pub async fn register(Json(user): Json<backend::models::NewUser>) -> axum::respo
     // Input validation on the password and email
     validate_user(&user).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    let hash = utils::hashing::hash_password(&user.password.as_bytes()).map_err(|_| {
+    let hash = hash_password(&user.password.as_bytes()).map_err(|_| {
         internal_error("Failed to hash the password")
     })?;
 
@@ -102,41 +101,42 @@ pub async fn login(Json(user_login): Json<backend::models::UserLogin>) -> axum::
     info!("Attempting to log a user in");
 
     // Input validation on the email
-    utils::input_validation::is_email_valid(&user_login.email).map_err(|e| {
-        axum::response::IntoResponse::into_response((StatusCode::BAD_REQUEST, e))
+    is_email_valid(&user_login.email).map_err(|e| {
+        (StatusCode::BAD_REQUEST, e)
     })?;
 
-    // Input length validation on the password
-    utils::input_validation::is_password_length_valid(&user_login.password, None).map_err(|e| {
-        axum::response::IntoResponse::into_response((StatusCode::BAD_REQUEST, e))
+    // Input length validation on the password (DoS)
+    is_password_length_valid(&user_login.password, None).map_err(|_| {
+        (StatusCode::BAD_REQUEST, "Password is not valid")
     })?;
 
-    let exists = DB::user::exists(&user_login.email).unwrap_or_else(|e| {
-        error!("{}", e);
-        false
-    });
-
-    let verified = DB::user::verified(&user_login.email).unwrap_or_else(|e| {
-        error!("{}", e);
-        false
-    });
-
+    // Check if the user exists, then if it is verified
+    let mut verified = false;
     let hash = match DB::user::get(&user_login.email) {
-        None => utils::hashing::DUMMY_HASH.to_string(),
-        Some(u) => u.hash,
+        None => {
+            info!("User doesn't exist in the DB");
+            DUMMY_HASH.to_string()
+        },
+        Some(u) => {
+            info!("User found in the DB");
+            verified = DB::user::verified(&user_login.email).map_err(|e| {
+                internal_error(format!("Failed to check the user verify status: {}", e).as_str())
+            })?;
+            info!("User verified: {}", verified);
+            u.hash
+        }
     };
 
     let password_ok = verify_password(hash.as_str(), &user_login.password.as_bytes()).unwrap_or_else(|_| false);
 
-    if !exists || !verified || !password_ok {
+    if !verified || !password_ok {
         info!("Login failed");
-        return Err(axum::response::IntoResponse::into_response((StatusCode::UNAUTHORIZED, "Login failed")).into());
+        Err((StatusCode::UNAUTHORIZED, "Login failed"))?;
     }
 
     let key = get_secret_key().unwrap();
-    let token = create_jwt(&user_login.email, utils::jwt::Role::Refresh, key.as_str(), None).map_err(|e| {
-        error!("JWT creation error: {}", e);
-        axum::response::IntoResponse::into_response(StatusCode::INTERNAL_SERVER_ERROR)
+    let token = create_jwt(&user_login.email, Role::Refresh, key.as_str(), None).map_err(|e| {
+        internal_error(format!("JWT creation error: {}", e).as_str())
     })?;
 
     info!("Login successful");

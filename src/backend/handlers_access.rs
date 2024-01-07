@@ -4,8 +4,9 @@ use log::{error, info};
 use tower_sessions::Session;
 use crate::backend::middlewares::AccessUser;
 use crate::backend::models::ChangePassword;
-use crate::utils::{input_validation::validate_passwords, hashing::verify_password, hashing::hash_password, hashing::DUMMY_HASH};
-use crate::{database as DB, email, utils};
+use crate::utils::input_validation::{validate_passwords, is_password_length_valid};
+use crate::utils::hashing::{verify_password, hash_password, DUMMY_HASH};
+use crate::{database as DB, email};
 
 const ERR_MSG: &str = "Server error, something went wrong";
 
@@ -32,14 +33,13 @@ pub async fn change_password(
         Err((StatusCode::BAD_REQUEST, "Anti-CSRF tokens don't match"))?;
     }
 
-    // Input length validation on the old password
-    utils::input_validation::is_password_length_valid(&parameters.password, None).map_err(|e| {
-        error!("{}", e);
-        (StatusCode::BAD_REQUEST, e)
+    // Input length validation on the old password (DoS)
+    is_password_length_valid(&parameters.old_password, None).map_err(|_| {
+        (StatusCode::BAD_REQUEST, "Old password is not valid")
     })?;
 
     // Input validation on the new passwords
-    // We don't care is the old password is the same as the new one. In this case, the user is just stupid
+    // We don't care if the old password is the same as the new one. In this case, the user is just stupid
     validate_passwords(&parameters.password, &parameters.password2).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // Check that the old password is correct

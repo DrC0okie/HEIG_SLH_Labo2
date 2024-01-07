@@ -182,6 +182,7 @@
                     csrf: $('#csrf').val(),
                 },
                 () => {
+                    $('#pwd_error').text('')
                     $('#pwd_success').text('Password changed, you will be logged out in 5s')
                     clearInterval(checker)
                     localStorage.clear()
