@@ -18,7 +18,7 @@ pub fn hash_password(password: &[u8]) -> Result<String, String> {
     let salt = SaltString::generate(&mut OsRng);
 
     // https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::new(19456, 2, 1, Some(32)).unwrap());
+    let argon2 = Argon2::default();
 
     match argon2.hash_password(password, &salt) {
         Ok(password_hash) => {
