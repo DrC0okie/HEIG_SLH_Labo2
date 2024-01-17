@@ -1,4 +1,4 @@
-use argon2::{Argon2, password_hash::{SaltString, PasswordHasher}, PasswordHash, PasswordVerifier, Params, Version, Algorithm};
+use argon2::{Argon2, password_hash::{SaltString, PasswordHasher}, PasswordHash, PasswordVerifier};
 use lazy_static::lazy_static;
 use log::{error, info};
 use rand::rngs::OsRng;
